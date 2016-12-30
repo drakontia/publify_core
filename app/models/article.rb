@@ -25,7 +25,6 @@ class Article < Content
   before_create :create_guid
   before_save :set_published_at, :set_permalink
   after_save :post_trigger, :keywords_to_tags, :shorten_url
-  after_save :send_pings
   after_save :send_notifications
 
   scope :drafts, -> { where(state: 'draft').order('created_at DESC') }
@@ -57,7 +56,7 @@ class Article < Content
                     initial_state: :new,
                     handles: [:withdraw,
                               :post_trigger,
-                              :send_pings, :send_notifications,
+                              :send_notifications,
                               :published_at=, :published=, :just_published?])
 
   def set_permalink
@@ -120,30 +119,6 @@ class Article < Content
 
   def feed_url(format)
     "#{permalink_url}.#{format.gsub(/\d/, '')}"
-  end
-
-  def really_send_pings
-    return unless blog.send_outbound_pings
-
-    blog.urls_to_ping_for(self).each do |url_to_ping|
-      begin
-        url_to_ping.send_weblogupdatesping(blog.base_url, permalink_url)
-      rescue => e
-        logger.error(e)
-        # in case the remote server doesn't respond or gives an error,
-        # we should throw an xmlrpc error here.
-      end
-    end
-
-    html_urls_to_ping.each do |url_to_ping|
-      begin
-        url_to_ping.send_pingback_or_trackback(permalink_url)
-      rescue => e
-        logger.error(e)
-        # in case the remote server doesn't respond or gives an error,
-        # we should throw an xmlrpc error here.
-      end
-    end
   end
 
   def next
